@@ -34,26 +34,6 @@ const glowFrag = `
     gl_FragColor = vec4(atmos * i * strength * lit * 2.2, 1.0);
   }`;
 
-// Point stars: magnitude-weighted sizes, stellar colours, soft photographic falloff.
-const starVert = `
-  attribute float size; attribute vec3 tint; uniform float pr; varying vec3 vTint; varying float vS;
-  void main() {
-    vTint = tint; vS = size;
-    gl_PointSize = size * pr;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }`;
-const starFrag = `
-  varying vec3 vTint; varying float vS;
-  void main() {
-    vec2 c = gl_PointCoord - 0.5;
-    float r2 = dot(c, c) * 4.0;
-    float core = exp(-r2 * 10.0);
-    float halo = exp(-r2 * 3.5) * 0.22 * smoothstep(2.0, 4.0, vS);
-    float a = core + halo;
-    if (a < 0.004) discard;
-    gl_FragColor = vec4(vTint * a, 1.0);
-  }`;
-
 function latLonToVec(lat, lon, r = 1) {
   const phi = ((lon + 180) / 360) * Math.PI * 2;
   const theta = ((90 - lat) * Math.PI) / 180;
@@ -62,34 +42,6 @@ function latLonToVec(lat, lon, r = 1) {
 
 const ease = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
-function makeStars(pr) {
-  const N = BIG ? 12000 : 8000;
-  const galN = new THREE.Vector3(0.9, 0.2, -0.38).normalize(); // same plane as the Milky Way texture (sphere UVs mirror z)
-  const pos = new Float32Array(N * 3), size = new Float32Array(N), tint = new Float32Array(N * 3);
-  const palette = [[0.72, 0.8, 1.0], [0.85, 0.9, 1.0], [1.0, 1.0, 1.0], [1.0, 0.95, 0.86], [1.0, 0.86, 0.7], [1.0, 0.76, 0.6]];
-  const weights = [0.08, 0.2, 0.3, 0.22, 0.13, 0.07];
-  const v = new THREE.Vector3();
-  for (let i = 0; i < N; i++) {
-    v.randomDirection();
-    if (Math.random() < 0.35) { v.addScaledVector(galN, -v.dot(galN) * (0.75 + Math.random() * 0.25)).normalize(); }
-    v.multiplyScalar(180);
-    pos.set([v.x, v.y, v.z], i * 3);
-    const m = Math.pow(Math.random(), 7); // many faint, few bright
-    size[i] = 1.4 + m * 6;
-    let k = 0, r = Math.random(); while (r > weights[k] && k < weights.length - 1) { r -= weights[k]; k++; }
-    const b = 0.38 + m * 1.3 + Math.random() * 0.2;
-    tint.set(palette[k].map((c) => c * b), i * 3);
-  }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  g.setAttribute('size', new THREE.BufferAttribute(size, 1));
-  g.setAttribute('tint', new THREE.BufferAttribute(tint, 3));
-  return new THREE.Points(g, new THREE.ShaderMaterial({
-    uniforms: { pr: { value: pr } }, vertexShader: starVert, fragmentShader: starFrag,
-    blending: THREE.AdditiveBlending, depthWrite: false, transparent: true,
-  }));
-}
-
 export function createHero(canvas, { world = 'earth', home = null, reduced = false } = {}) {
   let renderer;
   try {
@@ -97,8 +49,7 @@ export function createHero(canvas, { world = 'earth', home = null, reduced = fal
   } catch (e) {
     return null;
   }
-  const pr = Math.min(window.devicePixelRatio || 1, 2);
-  renderer.setPixelRatio(pr);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.NeutralToneMapping;
   renderer.toneMappingExposure = 1.0;
@@ -108,14 +59,20 @@ export function createHero(canvas, { world = 'earth', home = null, reduced = fal
   const loader = new THREE.TextureLoader();
   const tex = (url, srgb = true) => new Promise((res) => loader.load(url, (t) => { if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = maxAniso; res(t); }, undefined, () => res(null)));
 
-  // Sky: faint Milky Way plus point stars
+  // Stars (the original field: small, softly coloured points)
   const sky = new THREE.Group();
   scene.add(sky);
-  const milky = new THREE.Mesh(new THREE.SphereGeometry(300, 64, 32), new THREE.MeshBasicMaterial({ side: THREE.BackSide, depthWrite: false, toneMapped: false, color: 0x000000 }));
-  milky.rotation.z = Math.PI / 2; // keep the texture's stretched poles out of both views
-  sky.add(milky);
-  tex(T + 'milkyway.jpg').then((t) => { if (t) { milky.material.map = t; milky.material.color.set(0xffffff); milky.material.needsUpdate = true; } });
-  const stars = makeStars(pr);
+  const starGeo = new THREE.BufferGeometry();
+  const N = 2400, pos = new Float32Array(N * 3), col = new Float32Array(N * 3);
+  for (let i = 0; i < N; i++) {
+    const v = new THREE.Vector3().randomDirection().multiplyScalar(150 + Math.random() * 60);
+    pos.set([v.x, v.y, v.z], i * 3);
+    const b = 0.45 + Math.random() * 0.55, warm = Math.random() < 0.15;
+    col.set(warm ? [b, b * 0.9, b * 0.75] : [b * 0.9, b * 0.95, b], i * 3);
+  }
+  starGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  starGeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ size: 0.55, vertexColors: true, sizeAttenuation: true, transparent: true, opacity: 0.9, depthWrite: false, toneMapped: false }));
   sky.add(stars);
 
   // Planet
@@ -253,7 +210,7 @@ export function createHero(canvas, { world = 'earth', home = null, reduced = fal
     }
     pinHalo.scale.setScalar(1 + 0.25 * Math.sin(now / 600));
     pin.visible = pinHalo.visible = current === 'earth' && !!homeLocal && e > 0.55;
-    sky.rotation.y = drift * 0.15;
+    sky.rotation.y = drift * 0.2;
     renderer.render(scene, camera);
     if (onFrame) onFrame();
   }

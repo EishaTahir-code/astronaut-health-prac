@@ -1,5 +1,5 @@
 // Service worker: keeps the whole app on the device so it runs with no connection.
-const VERSION = 'horizon-v3';
+const VERSION = 'horizon-v4';
 const SHELL = [
   './',
   'index.html',
@@ -44,7 +44,6 @@ const SHELL = [
   'assets/textures/earth-clouds.jpg',
   'assets/textures/earth-bump.jpg',
   'assets/textures/earth-spec.jpg',
-  'assets/textures/milkyway.jpg',
   'assets/textures/moon.jpg',
   'assets/textures/mars.jpg',
   'assets/icons/icon-192.png',

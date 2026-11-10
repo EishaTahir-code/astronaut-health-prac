@@ -8,7 +8,7 @@ Horizon is an installable web app (PWA). After the first visit it works fully of
 
 | Page | What you can do |
 | --- | --- |
-| Today | The horizon-to-globe hero: scroll to pull back from a thin glowing horizon to a photoreal Earth (NASA Blue Marble, clouds, city lights, terrain and ocean glint) under a Milky Way sky. Moon and Mars missions show their own worlds. Today's status, tasks due, mission facts, the family's local time, streaks and badges. |
+| Today | The horizon-to-globe hero: scroll to pull back from a thin glowing horizon to a photoreal Earth (NASA Blue Marble, clouds, city lights, terrain and ocean glint). Moon and Mars missions show their own worlds. Today's status, tasks due, mission facts, the family's local time, streaks and badges. |
 | Check-in | Seven readings (blood pressure, heart rate, blood sugar, temperature, sleep, mood, exercise), each with a how-to guide and an instant green, amber or red result, then a symptom check. Results come with action cards and a one-tap report to the flight surgeon. |
 | Body | A clickable body figure. Each region shows what it does, your status, what spaceflight does to it and what helps. |
 | Trends | A one-line summary of what changed, a tile per reading (latest value, change from your usual, sparkline), one large chart for the selected reading, and a sleep vs reaction-time chart. Every chart has a table view. |
