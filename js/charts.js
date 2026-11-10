@@ -18,6 +18,40 @@ function niceTicks(min, max, count = 4) {
   return ticks;
 }
 
+// Smooth line that never overshoots the data (monotone cubic, Fritsch-Carlson).
+function monotonePath(P) {
+  const n = P.length;
+  const f = (v) => v.toFixed(1);
+  if (n < 3) return P.map((p, i) => `${i ? 'L' : 'M'}${f(p[0])} ${f(p[1])}`).join('');
+  const dx = [], m = [], t = [];
+  for (let i = 0; i < n - 1; i++) { dx[i] = P[i + 1][0] - P[i][0]; m[i] = dx[i] ? (P[i + 1][1] - P[i][1]) / dx[i] : 0; }
+  t[0] = m[0]; t[n - 1] = m[n - 2];
+  for (let i = 1; i < n - 1; i++) t[i] = m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2;
+  for (let i = 0; i < n - 1; i++) {
+    if (m[i] === 0) { t[i] = 0; t[i + 1] = 0; continue; }
+    const a = t[i] / m[i], b = t[i + 1] / m[i], q = a * a + b * b;
+    if (q > 9) { const k = 3 / Math.sqrt(q); t[i] = k * a * m[i]; t[i + 1] = k * b * m[i]; }
+  }
+  let d = `M${f(P[0][0])} ${f(P[0][1])}`;
+  for (let i = 0; i < n - 1; i++) {
+    const h = dx[i] / 3;
+    d += `C${f(P[i][0] + h)} ${f(P[i][1] + t[i] * h)} ${f(P[i + 1][0] - h)} ${f(P[i + 1][1] - t[i + 1] * h)} ${f(P[i + 1][0])} ${f(P[i + 1][1])}`;
+  }
+  return d;
+}
+
+let gradId = 0;
+
+// Small trend line for stat tiles: de-emphasised line, latest point in the accent.
+export function sparkline(values, { w = 132, h = 36, color = 'var(--faint)', accent = 'var(--series-1)' } = {}) {
+  const v = values.filter((x) => Number.isFinite(x));
+  if (v.length < 2) return '';
+  const lo = Math.min(...v), hi = Math.max(...v), span = hi - lo || 1;
+  const P = v.map((y, i) => [3 + (i / (v.length - 1)) * (w - 8), h - 4 - ((y - lo) / span) * (h - 8)]);
+  const last = P.at(-1);
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true"><path d="${monotonePath(P)}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round"/><circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="3.5" fill="${accent}" stroke="var(--night)" stroke-width="2"/></svg>`;
+}
+
 function svg(tag, attrs = {}) {
   const n = document.createElementNS(NS, tag);
   for (const [k, v] of Object.entries(attrs)) if (v != null) n.setAttribute(k, v);
@@ -25,8 +59,9 @@ function svg(tag, attrs = {}) {
 }
 
 // series: [{ key, name, color, points: [{ x: Date, y: number, level }] }]
-export function lineChart(container, { series, band = null, unit = '', decimals = 0, height = 220, label }) {
-  const W = 640, H = height, m = { l: 44, r: 52, t: 14, b: 28 };
+export function lineChart(container, { series, band = null, unit = '', decimals = 0, height = 220, label, smooth = false, area = false, bandLabel = null }) {
+  // Draw at the container's real width so text stays at its true size.
+  const W = Math.max(300, Math.round(container.getBoundingClientRect().width) || 640), H = height, m = { l: 44, r: 52, t: 14, b: 28 };
   const all = series.flatMap((s) => s.points);
   if (!all.length) { container.innerHTML = '<p class="muted">No data in this range yet.</p>'; return; }
   const xs = [...new Set(all.map((p) => +p.x))].sort((a, b) => a - b);
@@ -50,7 +85,7 @@ export function lineChart(container, { series, band = null, unit = '', decimals 
     tx.textContent = t.toLocaleString('en-GB');
     gAxis.append(tx);
   }
-  const nX = Math.min(5, xs.length);
+  const nX = Math.min(W < 480 ? 3 : 5, xs.length);
   for (let i = 0; i < nX; i++) {
     const t = xs[Math.round((i * (xs.length - 1)) / Math.max(1, nX - 1))];
     const tx = svg('text', { x: X(t), y: H - 8, 'text-anchor': i === 0 ? 'start' : i === nX - 1 ? 'end' : 'middle' });
@@ -59,12 +94,28 @@ export function lineChart(container, { series, band = null, unit = '', decimals 
   }
   root.append(gAxis);
 
-  if (band) root.append(svg('rect', { class: 'band', x: m.l, width: W - m.l - m.r, y: Y(band.hi), height: Math.max(1, Y(band.lo) - Y(band.hi)), rx: 4 }));
+  if (band) {
+    root.append(svg('rect', { class: 'band', x: m.l, width: W - m.l - m.r, y: Y(band.hi), height: Math.max(1, Y(band.lo) - Y(band.hi)), rx: 4 }));
+    if (bandLabel) {
+      const bl = svg('text', { x: m.l + 8, y: Y(band.hi) + 14, fill: 'var(--muted)', 'font-size': 11, 'font-family': 'var(--sans)' });
+      bl.textContent = bandLabel;
+      root.append(bl);
+    }
+  }
 
   for (const s of series) {
     const pts = s.points.filter((p) => p.y != null);
     if (!pts.length) continue;
-    const d = pts.map((p, i) => `${i ? 'L' : 'M'}${X(+p.x).toFixed(1)} ${Y(p.y).toFixed(1)}`).join('');
+    const P = pts.map((p) => [X(+p.x), Y(p.y)]);
+    const d = smooth ? monotonePath(P) : P.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)} ${p[1].toFixed(1)}`).join('');
+    if (area && series.length === 1) {
+      const id = `area-${++gradId}`;
+      const defs = svg('defs');
+      const g = svg('linearGradient', { id, x1: 0, y1: 0, x2: 0, y2: 1 });
+      g.append(svg('stop', { offset: '0%', 'stop-color': s.color, 'stop-opacity': 0.22 }), svg('stop', { offset: '100%', 'stop-color': s.color, 'stop-opacity': 0 }));
+      defs.append(g);
+      root.append(defs, svg('path', { d: `${d}L${P.at(-1)[0].toFixed(1)} ${H - m.b}L${P[0][0].toFixed(1)} ${H - m.b}Z`, fill: `url(#${id})` }));
+    }
     root.append(svg('path', { d, fill: 'none', stroke: s.color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
     for (const p of pts) {
       if (p.level === 'warn' || p.level === 'bad') {
@@ -131,7 +182,7 @@ export function lineChart(container, { series, band = null, unit = '', decimals 
 
 // Scatter: each point { x, y, label }.
 export function scatterChart(container, { points, xName, yName, xUnit, yUnit, label, color = 'var(--series-1)' }) {
-  const W = 640, H = 240, m = { l: 48, r: 20, t: 14, b: 40 };
+  const W = Math.max(300, Math.round(container.getBoundingClientRect().width) || 640), H = 260, m = { l: 48, r: 20, t: 34, b: 40 };
   if (points.length < 3) { container.innerHTML = '<p class="muted">Not enough days with both readings yet.</p>'; return; }
   const xt = niceTicks(Math.min(...points.map((p) => p.x)) - 0.25, Math.max(...points.map((p) => p.x)) + 0.25);
   const yt = niceTicks(Math.min(...points.map((p) => p.y)) - 5, Math.max(...points.map((p) => p.y)) + 5);
@@ -144,7 +195,7 @@ export function scatterChart(container, { points, xName, yName, xUnit, yUnit, la
   yt.forEach((t) => { g.append(svg('line', { class: 'gridline', x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t) })); const tx = svg('text', { x: m.l - 8, y: Y(t) + 4, 'text-anchor': 'end' }); tx.textContent = t; g.append(tx); });
   xt.forEach((t) => { const tx = svg('text', { x: X(t), y: H - 22, 'text-anchor': 'middle' }); tx.textContent = t; g.append(tx); });
   const xl = svg('text', { x: (m.l + W - m.r) / 2, y: H - 4, 'text-anchor': 'middle' }); xl.textContent = `${xName} (${xUnit})`; g.append(xl);
-  const yl = svg('text', { x: 12, y: m.t + 4, 'text-anchor': 'start' }); yl.textContent = `${yName} (${yUnit})`; g.append(yl);
+  const yl = svg('text', { x: m.l - 8, y: 14, 'text-anchor': 'start' }); yl.textContent = `${yName} (${yUnit})`; g.append(yl);
   root.append(g);
   // least-squares trend line
   const n = points.length, mx = points.reduce((s, p) => s + p.x, 0) / n, my = points.reduce((s, p) => s + p.y, 0) / n;

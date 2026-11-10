@@ -72,7 +72,7 @@ export async function render(main) {
   const intro2 = main.querySelector('.today-intro');
   const spacer = main.querySelector('.today-spacer');
   function onScroll() {
-    const end = intro2.offsetHeight + spacer.offsetHeight;
+    const end = intro2.offsetHeight + spacer.offsetHeight * 0.55; // globe is complete before the panels arrive
     const p = Math.min(1, window.scrollY / Math.max(1, end));
     hero?.setProgress(p);
     intro2.style.opacity = String(Math.max(0, 1 - p * 1.6));

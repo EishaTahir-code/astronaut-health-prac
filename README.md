@@ -8,10 +8,10 @@ Horizon is an installable web app (PWA). After the first visit it works fully of
 
 | Page | What you can do |
 | --- | --- |
-| Today | The horizon-to-globe hero: scroll to pull back from a thin glowing horizon to the whole planet (Earth, Moon or Mars, matching the mission). Today's status, tasks due, mission facts, the family's local time, streaks and badges. |
+| Today | The horizon-to-globe hero: scroll to pull back from a thin glowing horizon to a photoreal Earth (NASA Blue Marble, clouds, city lights, terrain and ocean glint) under a Milky Way sky. Moon and Mars missions show their own worlds. Today's status, tasks due, mission facts, the family's local time, streaks and badges. |
 | Check-in | Seven readings (blood pressure, heart rate, blood sugar, temperature, sleep, mood, exercise), each with a how-to guide and an instant green, amber or red result, then a symptom check. Results come with action cards and a one-tap report to the flight surgeon. |
 | Body | A clickable body figure. Each region shows what it does, your status, what spaceflight does to it and what helps. |
-| Trends | One chart per reading, compared with your own usual range, with a plain-language headline. Includes a sleep vs reaction-time chart. Every chart has a table view. |
+| Trends | A one-line summary of what changed, a tile per reading (latest value, change from your usual, sparkline), one large chart for the selected reading, and a sleep vs reaction-time chart. Every chart has a table view. |
 | Games | Signal lock (vigilance test, as used on the ISS), Debris dodge (impulse control) and Star map (working memory), scored against your own baseline. |
 | Messages | Crew spaces with invite codes, links and QR codes. Record video, voice or text, including sealed "open when…" messages. An outbox holds messages until there is a connection, and delivery waits for the real signal delay of the mission (shortened in demo mode). |
 | Reports | Flight surgeon view: shared health reports and replies. |

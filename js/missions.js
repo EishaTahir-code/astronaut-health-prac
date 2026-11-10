@@ -39,8 +39,10 @@ export const ROLES = {
   surgeon: { id: 'surgeon', name: 'Flight surgeon' },
 };
 
+const SETTINGS_VERSION = 2;
 const DEFAULTS = {
-  mission: 'mars',
+  v: SETTINGS_VERSION,
+  mission: 'station',
   role: 'astronaut',
   name: 'Commander Ana Reyes',
   missionStart: null, // ISO date; set on first run so the demo opens on day 142
@@ -55,6 +57,12 @@ const subs = new Set();
 export async function loadSettings() {
   const saved = await store.get('settings', {});
   cache = { ...DEFAULTS, ...saved };
+  if ((saved.v || 1) < SETTINGS_VERSION) {
+    // v2: Earth is the default world for the home screen.
+    cache.mission = 'station';
+    cache.v = SETTINGS_VERSION;
+    await store.set('settings', cache);
+  }
   if (!cache.missionStart) {
     const start = new Date();
     start.setDate(start.getDate() - 141);
