@@ -1,0 +1,22 @@
+{
+  "name": "Horizon: astronaut health monitor",
+  "short_name": "Horizon",
+  "description": "Log your health readings, see your status at a glance and know what to do next, even with no connection to Earth.",
+  "start_url": "./#/today",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#04060B",
+  "theme_color": "#04060B",
+  "categories": ["health", "medical", "education"],
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Check in", "url": "./#/check-in", "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Reaction test", "url": "./#/games/signal", "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Messages", "url": "./#/messages", "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
