@@ -192,7 +192,7 @@ export async function render(main, { query }) {
           media = r.kind === 'video' ? `<video controls playsinline preload="metadata" src="${url}"></video>` : `<audio controls preload="metadata" src="${url}"></audio>`;
         } else media = `<p class="muted small">${r.kind === 'video' ? 'Video' : 'Voice note'} downloading. It will be saved for offline viewing.</p>`;
       }
-      parts.push(`<article class="msg ${r.mine ? 'mine' : ''}"><div class="meta"><strong>${who}${to}</strong><span>${fmtDateTime(r.sent_at)}</span></div>${r.open_when ? `<p class="muted small">Opened: “${esc(r.open_when)}”</p>` : ''}${media}${r.body ? `<p>${esc(r.body)}</p>` : ''}${r.mine ? transit(r, inTransit) : ''}</article>`);
+      parts.push(`<article class="msg ${r.mine ? 'mine' : ''}"><div class="meta"><strong>${who}${to}</strong><span>${fmtDateTime(r.sent_at)}</span></div>${r.open_when ? `<p class="muted small">${r.mine ? `Sealed: to open ${esc(r.open_when.toLowerCase())}. ${r.opened_at ? 'Opened.' : 'Not opened yet.'}` : `Opened: \u201c${esc(r.open_when)}\u201d`}</p>` : ''}${media}${r.body ? `<p>${esc(r.body)}</p>` : ''}${r.mine ? transit(r, inTransit) : ''}</article>`);
     }
     box.innerHTML = parts.join('');
     box.querySelectorAll('[data-open]').forEach((b) => b.addEventListener('click', async () => {
@@ -305,7 +305,7 @@ export async function render(main, { query }) {
       try {
         stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: kind === 'video' ? { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } } : false });
       } catch { toast('Camera or microphone access was blocked. Allow it in your browser settings, or send text.', 'warn'); return; }
-      if (kind === 'video') { const live = rec.querySelector('#live'); live.srcObject = stream; live.play().catch(() => {}); }
+      if (kind === 'video') { const live = rec.querySelector('#live'); live.srcObject = stream; live.classList.add('on'); live.play().catch(() => {}); }
       const types = kind === 'video' ? ['video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'] : ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4', 'audio/ogg'];
       const mimeType = types.find((t) => MediaRecorder.isTypeSupported?.(t)) || '';
       recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 600000, audioBitsPerSecond: 64000 });

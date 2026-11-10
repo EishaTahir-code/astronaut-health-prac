@@ -30,7 +30,7 @@ export async function render(main) {
       const reaction = r.snapshot?.reaction ? `<p>Reaction test: ${r.snapshot.reaction.medianMs} ms median${r.snapshot.baseline ? `, usual ${Math.round(r.snapshot.baseline)} ms` : ''}, ${r.snapshot.reaction.lapses} lapses.</p>` : '';
       return `
         <article class="msg">
-          <div class="meta"><strong>${esc(r.summary)}</strong>${statusChip(LEVEL[r.level] || 'none')}</div>
+          <div class="spread"><h3 style="font-size:1.05rem;font-weight:600;max-width:60ch">${esc(r.summary)}</h3>${statusChip(LEVEL[r.level] || 'none')}</div>
           <span class="muted small">Sent ${fmtDateTime(r.created_at)}, arrived ${fmtDateTime(r.deliver_at)}</span>
           ${c?.symptoms?.length ? `<p style="color:var(--bad)">Symptoms reported: ${esc(c.symptoms.join(', '))}</p>` : ''}
           ${reaction}

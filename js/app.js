@@ -87,14 +87,22 @@ async function route() {
     return;
   }
   if (token !== renderToken) return;
-  main.innerHTML = '';
+  // Each page draws into its own container, so a slow page that has been
+  // navigated away from can never draw into the next one.
+  const view = document.createElement('div');
+  view.className = 'view';
+  main.replaceChildren(view);
   window.scrollTo(0, 0);
   document.title = `${PAGES[id].title} · Horizon`;
   try {
-    cleanup = (await mod.render(main, { rest, query })) || null;
+    const done = (await mod.render(view, { rest, query })) || null;
+    if (token !== renderToken) { if (done) done(); return; }
+    cleanup = done;
   } catch (e) {
+    if (token !== renderToken) return;
     console.error(e);
-    main.innerHTML = `<div class="page"><div class="page-head"><h1>Something went wrong</h1><p>${String(e.message || e)}</p></div></div>`;
+    view.innerHTML = '<div class="page"><div class="page-head"><h1>Something went wrong</h1><p></p></div></div>';
+    view.querySelector('p').textContent = String(e.message || e);
   }
   if (token === renderToken && document.activeElement?.closest('.tabbar, .rail, .sheet')) main.focus({ preventScroll: true });
 }
