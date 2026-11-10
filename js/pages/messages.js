@@ -210,10 +210,15 @@ export async function render(main, { query }) {
     }
   }
 
+  let peopleKey = null;
+  let inviteNode = null; // keeps the last invite on screen across repaints
   async function paintPeople() {
     const box = main.querySelector('#people');
     if (!box) return;
     const members = await store.get('members', []);
+    const key = JSON.stringify(members.map((x) => [x.user_id, x.status, x.display_name]));
+    if (key === peopleKey && box.childElementCount) return;
+    peopleKey = key;
     const others = members.filter((x) => x.role !== 'astronaut' && x.status !== 'removed');
     const pending = others.filter((x) => x.status === 'pending');
     box.innerHTML = `
@@ -225,6 +230,7 @@ export async function render(main, { query }) {
         <div class="btn-row"><button class="btn small" data-invite="family">${icon('users')}Invite family</button><button class="btn small ghost" data-invite="surgeon">${icon('surgeon')}Invite flight surgeon</button></div>
         <div id="invite-out"></div></div>`;
     const crewId = crew.id;
+    if (inviteNode) box.querySelector('#invite-out').append(inviteNode);
     box.querySelectorAll('[data-approve],[data-remove]').forEach((b) => b.addEventListener('click', async () => {
       b.disabled = true;
       try {
@@ -244,6 +250,7 @@ export async function render(main, { query }) {
         out.innerHTML = `<div class="panel tight stack" style="margin-top:12px"><span class="muted small">${b.dataset.invite === 'surgeon' ? 'Flight surgeon' : 'Family'} invite code</span><span class="code-box">${code}</span>
           <div class="qr">${qrSvg(link)}</div>
           <div class="btn-row"><button class="btn small ghost" data-copy="${esc(link)}">${icon('copy')}Copy link</button>${navigator.share ? `<button class="btn small ghost" data-share="${esc(link)}">${icon('send')}Share</button>` : ''}</div></div>`;
+        inviteNode = out.firstElementChild;
         out.querySelector('[data-copy]').addEventListener('click', async (e) => { try { await navigator.clipboard.writeText(e.currentTarget.dataset.copy); toast('Link copied.', 'copy'); } catch { toast('Copy failed. Share the code instead.', 'warn'); } });
         out.querySelector('[data-share]')?.addEventListener('click', (e) => navigator.share({ title: 'Join my crew space on Horizon', text: `Join ${crew.name} on Horizon with code ${code}`, url: e.currentTarget.dataset.share }).catch(() => {}));
       } catch (e) { toast(navigator.onLine ? e.message : 'Connect to create an invite.', 'warn'); }

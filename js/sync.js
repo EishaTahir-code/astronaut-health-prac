@@ -46,7 +46,8 @@ async function refreshMembership(crew) {
   const next = { ...crew, status: me?.status || 'removed', role: me?.role || crew.role, name: info?.name || crew.name, mission: info?.mission || crew.mission };
   if (me?.status === 'approved') {
     const list = await supa.members(crew.id);
-    await store.set('members', list);
+    const prev = await store.get('members', []);
+    if (JSON.stringify(prev) !== JSON.stringify(list)) await store.set('members', list);
   }
   if (JSON.stringify(next) !== JSON.stringify(crew)) await store.set('crew', next);
 }
@@ -104,6 +105,7 @@ async function pull(crew) {
   const crewRole = crew.role;
   if (crewRole === 'surgeon' || crewRole === 'astronaut') {
     const reports = await supa.fetchReports(crew.id);
-    await store.set('reports', reports);
+    const prevReports = await store.get('reports', []);
+    if (JSON.stringify(prevReports) !== JSON.stringify(reports)) await store.set('reports', reports);
   }
 }
