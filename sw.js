@@ -1,5 +1,5 @@
 // Service worker: keeps the whole app on the device so it runs with no connection.
-const VERSION = 'horizon-v2';
+const VERSION = 'horizon-v3';
 const SHELL = [
   './',
   'index.html',
@@ -55,7 +55,12 @@ const SHELL = [
 ];
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(VERSION).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  // cache: 'reload' skips the browser's HTTP cache, so an update never saves stale files.
+  event.waitUntil(
+    caches.open(VERSION)
+      .then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', (event) => {
@@ -64,31 +69,38 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// App code (pages, scripts, styles) changes with every release: network first,
+// asking the server whether it changed, and the saved copy only when offline.
+// Big files that rarely change (textures, fonts, libraries, icons): cache first.
+const isCode = (url) => url.pathname.endsWith('/') || /\.(html|js|css|webmanifest)$/.test(url.pathname) && !url.pathname.includes('/vendor/');
+
+async function networkFirst(req, cacheKey = req) {
+  const cache = await caches.open(VERSION);
+  try {
+    const res = await fetch(req, { cache: 'no-cache' });
+    if (res.ok) cache.put(cacheKey, res.clone());
+    return res;
+  } catch (e) {
+    const hit = await cache.match(cacheKey, { ignoreSearch: true });
+    if (hit) return hit;
+    throw e;
+  }
+}
+
+async function cacheFirst(req) {
+  const cache = await caches.open(VERSION);
+  const hit = await cache.match(req, { ignoreSearch: true });
+  if (hit) return hit;
+  const res = await fetch(req);
+  if (res.ok) cache.put(req, res.clone());
+  return res;
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // Supabase and anything else go straight to the network
-
-  if (req.mode === 'navigate') {
-    event.respondWith(
-      fetch(req).then((res) => {
-        const copy = res.clone();
-        caches.open(VERSION).then((c) => c.put('index.html', copy));
-        return res;
-      }).catch(() => caches.match('index.html'))
-    );
-    return;
-  }
-
-  // Cache first, then refresh in the background (stale-while-revalidate).
-  event.respondWith(
-    caches.match(req, { ignoreSearch: true }).then((hit) => {
-      const net = fetch(req).then((res) => {
-        if (res.ok) { const copy = res.clone(); caches.open(VERSION).then((c) => c.put(req, copy)); }
-        return res;
-      }).catch(() => hit);
-      return hit || net;
-    })
-  );
+  if (req.mode === 'navigate') { event.respondWith(networkFirst(req, 'index.html')); return; }
+  event.respondWith(isCode(url) ? networkFirst(req) : cacheFirst(req));
 });
